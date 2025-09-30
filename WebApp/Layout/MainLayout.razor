@@ -1,0 +1,19 @@
+﻿@inherits LayoutComponentBase
+
+<div class="d-flex flex-column min-vh-100">
+	<!-- Top Navbar -->
+	<header>
+		<NavMenu />
+	</header>
+
+	<!-- Main content -->
+	<main class="flex-fill container py-3">
+		@Body
+	</main>
+
+	<!-- Footer -->
+	<footer class="bg-dark text-light text-center py-3 mt-auto">
+		<span>© 2025 - WebApp</span> |
+		<a href="https://learn.microsoft.com/aspnet/core/" target="_blank" class="text-decoration-none text-info">About</a>
+	</footer>
+</div>

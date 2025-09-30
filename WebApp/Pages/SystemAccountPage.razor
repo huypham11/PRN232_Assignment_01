@@ -1,0 +1,208 @@
+@page "/systemaccount_manage"
+@using BusinessObjects
+@using WebApp.Services
+@inject SystemAccountService SystemAccountService
+@inject IJSRuntime JSRuntime
+
+<h3>System Account Management</h3>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert alert-info">@message</div>
+}
+
+@if (systemAccounts == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <button class="btn btn-success mb-2" @onclick="ShowAddModal">Add New Account</button>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var account in systemAccounts)
+            {
+                <tr>
+                    <td>@account.AccountId</td>
+                    <td>@account.AccountName</td>
+                    <td>@account.AccountEmail</td>
+                    <td>@GetRoleName(account.AccountRole)</td>
+                    <td>
+                        <button class="btn btn-primary me-1" @onclick="() => ShowEditModal(account)">Edit</button>
+                        <button class="btn btn-danger" @onclick="() => DeleteSystemAccount(account.AccountId)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<!-- Bootstrap Modal -->
+<div class="modal fade" id="systemAccountModal" tabindex="-1" aria-labelledby="systemAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="systemAccountModalLabel">@modalTitle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <input class="form-control" @bind="currentAccount.AccountName" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input class="form-control" type="email" @bind="currentAccount.AccountEmail" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input class="form-control" type="password" @bind="currentAccount.AccountPassword" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Role</label>
+                    <select class="form-select" @bind="currentAccount.AccountRole">
+                        <option value="">Select Role</option>
+                        <option value="1">Administrator</option>
+                        <option value="2">Staff</option>
+                        <option value="3">Lecturer</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" @onclick="SaveSystemAccount">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string message;
+    private List<SystemAccount> systemAccounts;
+    private SystemAccount currentAccount = new();
+    private string modalTitle = "Add Account";
+    private bool isEdit = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSystemAccounts();
+    }
+
+    private async Task LoadSystemAccounts()
+    {
+        systemAccounts = await SystemAccountService.GetSystemAccountsAsync();
+    }
+
+    private string GetRoleName(int? role)
+    {
+        return role switch
+        {
+            1 => "Administrator",
+            2 => "Staff",
+            3 => "Lecturer",
+            _ => "Unknown"
+        };
+    }
+
+    private async Task DeleteSystemAccount(short id)
+    {
+        try
+        {
+            var success = await SystemAccountService.DeleteSystemAccountAsync(id);
+            if (success)
+            {
+                var item = systemAccounts.FirstOrDefault(a => a.AccountId == id);
+                if (item != null)
+                {
+                    systemAccounts.Remove(item);
+                    message = $"Account {id} deleted successfully.";
+                }
+            }
+            else
+            {
+                message = $"Failed to delete account {id}.";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Error: {ex.Message}";
+        }
+        StateHasChanged();
+    }
+
+    private void ShowAddModal()
+    {
+        currentAccount = new SystemAccount();
+        modalTitle = "Add Account";
+        isEdit = false;
+        ShowModal();
+    }
+
+    private void ShowEditModal(SystemAccount account)
+    {
+        currentAccount = new SystemAccount
+            {
+                AccountId = account.AccountId,
+                AccountName = account.AccountName,
+                AccountEmail = account.AccountEmail,
+                AccountRole = account.AccountRole,
+                AccountPassword = account.AccountPassword
+            };
+        modalTitle = "Edit Account";
+        isEdit = true;
+        ShowModal();
+    }
+
+    private async Task SaveSystemAccount()
+    {
+        try
+        {
+            if (isEdit)
+            {
+                await SystemAccountService.UpdateSystemAccountAsync(currentAccount.AccountId, currentAccount);
+                var item = systemAccounts.FirstOrDefault(a => a.AccountId == currentAccount.AccountId);
+                if (item != null)
+                {
+                    item.AccountName = currentAccount.AccountName;
+                    item.AccountEmail = currentAccount.AccountEmail;
+                    item.AccountRole = currentAccount.AccountRole;
+                    item.AccountPassword = currentAccount.AccountPassword;
+                }
+                message = $"Account {currentAccount.AccountId} updated successfully.";
+            }
+            else
+            {
+                await SystemAccountService.CreateSystemAccountAsync(currentAccount);
+                await LoadSystemAccounts(); // reload để có ID tự tăng
+                message = "New account added successfully.";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Error: {ex.Message}";
+        }
+
+        HideModal();
+        StateHasChanged();
+    }
+
+    private async void ShowModal()
+    {
+        await JSRuntime.InvokeVoidAsync("bootstrapInterop.showModal", "#systemAccountModal");
+    }
+
+    private async void HideModal()
+    {
+        await JSRuntime.InvokeVoidAsync("bootstrapInterop.hideModal", "#systemAccountModal");
+    }
+}

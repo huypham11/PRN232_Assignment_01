@@ -122,7 +122,7 @@ public partial class FunewsManagementContext : DbContext
             entity.ToTable("Tag");
 
             entity.Property(e => e.TagId)
-                .ValueGeneratedNever()
+                .ValueGeneratedOnAdd()
                 .HasColumnName("TagID");
             entity.Property(e => e.Note).HasMaxLength(400);
             entity.Property(e => e.TagName).HasMaxLength(50);

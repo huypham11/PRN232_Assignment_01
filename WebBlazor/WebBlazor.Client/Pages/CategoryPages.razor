@@ -1,0 +1,59 @@
+﻿@page "/category"
+@using BusinessObjects
+@using WebBlazor.Client.Services
+@inject WebBlazor.Client.Services.CategoryService CategoryService
+
+@if (isLoading)
+{
+	<p>Loading categories...</p>
+}
+else if (errorMessage != null)
+{
+	<p class="text-danger">@errorMessage</p>
+}
+else if (categories == null || !categories.Any())
+{
+	<p>No categories found.</p>
+}
+else
+{
+	<table>
+		<thead>
+		<tr>
+			<th>ID</th>
+			<th>Name</th>
+		</tr>
+		</thead>
+		<tbody>
+		@foreach (var c in categories)
+		{
+			<tr>
+				<td>@c.CategoryId</td>
+				<td>@c.CategoryName</td>
+			</tr>
+		}
+		</tbody>
+	</table>
+}
+
+@code
+{
+	public List<Category> categories;
+	public bool isLoading = true;
+	public string errorMessage;
+	protected override async Task OnInitializedAsync()
+	{
+		try
+		{
+			categories = await CategoryService.GetAllAsync();
+		}
+		catch (Exception ex)
+		{
+			errorMessage = $"Error loading categories: {ex.Message}";
+		}
+		finally
+		{
+			isLoading = false;
+		}
+	}
+}

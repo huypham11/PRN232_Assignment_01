@@ -38,15 +38,17 @@ public class TagDAO
     {
         try
         {
-            using (var context = new FunewsManagementContext())
-            {
-                context.Tags.Add(tag);
-                context.SaveChanges();
-            }
+            using var context = new FunewsManagementContext();
+
+            // Đảm bảo không gán TagId khi insert
+            tag.TagId = 0;
+
+            context.Tags.Add(tag);
+            context.SaveChanges();
         }
-        catch (Exception e)
+        catch (Exception)
         {
-            throw new Exception(e.Message);
+            throw;
         }
     }
     public static void UpdateTag(int id, Tag tag)
