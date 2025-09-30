@@ -1,0 +1,110 @@
+@page "/login"
+@using WebApp.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@layout EmptyLayout
+
+<div class="container-fluid vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="card shadow" style="width: 400px;">
+        <div class="card-header bg-primary text-white text-center">
+            <h4 class="mb-0">FU News Management</h4>
+            <small>Please sign in to continue</small>
+        </div>
+        <div class="card-body">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+            
+            <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+                <DataAnnotationsValidator />
+                
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <InputText class="form-control" @bind-Value="loginModel.Email" placeholder="Enter your email" />
+                    <ValidationMessage For="@(() => loginModel.Email)" />
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <InputText type="password" class="form-control" @bind-Value="loginModel.Password" placeholder="Enter your password" />
+                    <ValidationMessage For="@(() => loginModel.Password)" />
+                </div>
+                
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary" disabled="@isLogging">
+                        @if (isLogging)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Sign In
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+        <div class="card-footer text-muted text-center">
+            <small>
+                <strong>Demo Accounts:</strong><br/>
+                Admin: admin@funews.com / admin123<br/>
+                
+            </small>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private string errorMessage = string.Empty;
+    private bool isLogging = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // If already authenticated, redirect to home
+        await AuthService.InitializeAsync();
+        if (AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        try
+        {
+            isLogging = true;
+            errorMessage = string.Empty;
+            
+            // Ensure auth service is initialized
+            await AuthService.InitializeAsync();
+            
+            var success = await AuthService.LoginAsync(loginModel.Email?.Trim() ?? "", loginModel.Password?.Trim() ?? "");
+            
+            if (success)
+            {
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                errorMessage = $"Invalid email or password. Please try again. (Attempted: {loginModel.Email})";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Login failed: {ex.Message}";
+        }
+        finally
+        {
+            isLogging = false;
+        }
+    }
+
+    public class LoginModel
+    {
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Password is required")]
+        public string Password { get; set; } = string.Empty;
+    }
+}

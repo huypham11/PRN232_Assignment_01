@@ -1,15 +1,17 @@
 @page "/tag_manage"
 @using BusinessObjects
 @using WebApp.Services
+@using WebApp.Components
 @inject TagService TagService
 @inject IJSRuntime JSRuntime
 
-<h3>Tag Management</h3>
+<AuthorizeView RequiredPermission="tags">
+    <h3>Tag Management</h3>
 
-@if (!string.IsNullOrEmpty(message))
-{
-    <div class="alert alert-info">@message</div>
-}
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-info">@message</div>
+    }
 
 @if (tags == null)
 {
@@ -72,8 +74,8 @@ else
 </div>
 
 @code {
-    private string message;
-    private List<Tag> tags;
+    private string? message;
+    private List<Tag>? tags;
     private Tag currentTag = new();
     private string modalTitle = "Add Tag";
     private bool isEdit = false;
@@ -95,10 +97,10 @@ else
             var success = await TagService.DeleteTagAsync(id);
             if (success)
             {
-                var item = tags.FirstOrDefault(t => t.TagId == id);
+                var item = tags?.FirstOrDefault(t => t.TagId == id);
                 if (item != null)
                 {
-                    tags.Remove(item);
+                    tags?.Remove(item);
                     message = $"Tag {id} deleted successfully.";
                 }
             }
@@ -142,7 +144,7 @@ else
             if (isEdit)
             {
                 await TagService.UpdateTagAsync(currentTag.TagId, currentTag);
-                var item = tags.FirstOrDefault(t => t.TagId == currentTag.TagId);
+                var item = tags?.FirstOrDefault(t => t.TagId == currentTag.TagId);
                 if (item != null)
                 {
                     item.TagName = currentTag.TagName;
@@ -176,3 +178,4 @@ else
         await JSRuntime.InvokeVoidAsync("bootstrapInterop.hideModal", "#tagModal");
     }
 }
+</AuthorizeView>

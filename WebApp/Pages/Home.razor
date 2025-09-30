@@ -1,7 +1,105 @@
 ﻿@page "/"
+@using WebApp.Services
+@inject AuthService AuthService
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container-fluid">
+    @if (AuthService.IsAuthenticated)
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="jumbotron bg-primary text-white p-4 rounded mb-4">
+                    <h1 class="display-4">Welcome, @AuthService.CurrentUser?.AccountName!</h1>
+                    <p class="lead">You are logged in as: <strong>@GetRoleText()</strong></p>
+                    <hr class="my-4" style="border-color: rgba(255,255,255,0.3);">
+                    <p>Use the navigation menu above to access the management features available to your role.</p>
+                </div>
+            </div>
+        </div>
 
-Welcome to your new app.
+        <div class="row">
+            <div class="col-md-12">
+                <h3>Available Features</h3>
+                <div class="row">
+                    @if (AuthService.CanAccessCategories())
+                    {
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fas fa-tags"></i> Category Management</h5>
+                                    <p class="card-text">Manage news categories, create new ones, and organize content.</p>
+                                    <a href="/category_manage" class="btn btn-primary">Manage Categories</a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @if (AuthService.CanAccessTags())
+                    {
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fas fa-hashtag"></i> Tag Management</h5>
+                                    <p class="card-text">Create and manage tags for better content organization.</p>
+                                    <a href="/tag_manage" class="btn btn-primary">Manage Tags</a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @if (AuthService.CanAccessNewsArticles())
+                    {
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fas fa-newspaper"></i> News Articles</h5>
+                                    <p class="card-text">Create, edit, and manage news articles and content.</p>
+                                    <a href="/newsarticle_manage" class="btn btn-primary">Manage Articles</a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @if (AuthService.CanAccessAllSystemAccounts() || AuthService.CanAccessOwnAccount())
+                    {
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fas fa-users"></i> Account Management</h5>
+                                    <p class="card-text">@(AuthService.IsAdmin ? "Manage all user accounts and permissions." : "Manage your account settings.")</p>
+                                    <a href="/systemaccount_manage" class="btn btn-primary">Manage Accounts</a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="jumbotron text-center p-5">
+                    <h1 class="display-4">FU News Management System</h1>
+                    <p class="lead">Please sign in to access the management features.</p>
+                    <hr class="my-4">
+                    <a class="btn btn-primary btn-lg" href="/login" role="button">Sign In</a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+    }
+
+    private string GetRoleText()
+    {
+        if (AuthService.IsAdmin) return "Administrator";
+        if (AuthService.IsStaff) return "Staff";
+        if (AuthService.IsLecturer) return "Lecturer";
+        return "User";
+    }
+}

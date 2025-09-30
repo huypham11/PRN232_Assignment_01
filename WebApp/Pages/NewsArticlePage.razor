@@ -1,16 +1,18 @@
 @page "/newsarticle_manage"
 @using BusinessObjects
 @using WebApp.Services
+@using WebApp.Components
 @inject NewsArticleService NewsArticleService
 @inject CategoryService CategoryService
 @inject IJSRuntime JSRuntime
 
-<h3>News Article Management</h3>
+<AuthorizeView RequiredPermission="newsarticles">
+    <h3>News Article Management</h3>
 
-@if (!string.IsNullOrEmpty(message))
-{
-    <div class="alert alert-info">@message</div>
-}
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-info">@message</div>
+    }
 
 @if (newsArticles == null)
 {
@@ -126,9 +128,9 @@ else
 </div>
 
 @code {
-    private string message;
-    private List<NewsArticle> newsArticles;
-    private List<Category> categories;
+    private string? message;
+    private List<NewsArticle>? newsArticles;
+    private List<Category>? categories;
     private NewsArticle currentArticle = new();
     private string modalTitle = "Add Article";
     private bool isEdit = false;
@@ -164,10 +166,10 @@ else
             var success = await NewsArticleService.DeleteNewsArticleAsync(id);
             if (success)
             {
-                var item = newsArticles.FirstOrDefault(a => a.NewsArticleId == id);
+                var item = newsArticles?.FirstOrDefault(a => a.NewsArticleId == id);
                 if (item != null)
                 {
-                    newsArticles.Remove(item);
+                    newsArticles?.Remove(item);
                     message = $"Article {id} deleted successfully.";
                 }
             }
@@ -224,7 +226,7 @@ else
             if (isEdit)
             {
                 await NewsArticleService.UpdateNewsArticleAsync(currentArticle.NewsArticleId, currentArticle);
-                var item = newsArticles.FirstOrDefault(a => a.NewsArticleId == currentArticle.NewsArticleId);
+                var item = newsArticles?.FirstOrDefault(a => a.NewsArticleId == currentArticle.NewsArticleId);
                 if (item != null)
                 {
                     item.NewsTitle = currentArticle.NewsTitle;
@@ -263,3 +265,4 @@ else
         await JSRuntime.InvokeVoidAsync("bootstrapInterop.hideModal", "#newsArticleModal");
     }
 }
+</AuthorizeView>

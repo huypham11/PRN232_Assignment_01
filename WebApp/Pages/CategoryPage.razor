@@ -1,15 +1,17 @@
 ﻿@page "/category_manage"
 @using BusinessObjects
 @using WebApp.Services
+@using WebApp.Components
 @inject CategoryService CategoryService
 @inject IJSRuntime JSRuntime
 
-<h3>Category Management</h3>
+<AuthorizeView RequiredPermission="categories">
+    <h3>Category Management</h3>
 
-@if (!string.IsNullOrEmpty(message))
-{
-    <div class="alert alert-info">@message</div>
-}
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-info">@message</div>
+    }
 
 @if (categories == null)
 {
@@ -78,8 +80,8 @@ else
 </div>
 
 @code {
-    private string message;
-    private List<Category> categories;
+    private string? message;
+    private List<Category>? categories;
     private Category currentCategory = new();
     private string modalTitle = "Add Category";
     private bool isEdit = false;
@@ -101,10 +103,10 @@ else
             var success = await CategoryService.DeleteCategoryAsync(id);
             if (success)
             {
-                var item = categories.FirstOrDefault(c => c.CategoryId == id);
+                var item = categories?.FirstOrDefault(c => c.CategoryId == id);
                 if (item != null)
                 {
-                    categories.Remove(item);
+                    categories?.Remove(item);
                     message = $"Category {id} deleted successfully.";
                 }
             }
@@ -149,7 +151,7 @@ else
             if (isEdit)
             {
                 await CategoryService.UpdateCategoryAsync(currentCategory.CategoryId, currentCategory);
-                var item = categories.FirstOrDefault(c => c.CategoryId == currentCategory.CategoryId);
+                var item = categories?.FirstOrDefault(c => c.CategoryId == currentCategory.CategoryId);
                 if (item != null)
                 {
                     item.CategoryName = currentCategory.CategoryName;
@@ -184,3 +186,4 @@ else
         await JSRuntime.InvokeVoidAsync("bootstrapInterop.hideModal", "#categoryModal");
     }
 }
+</AuthorizeView>

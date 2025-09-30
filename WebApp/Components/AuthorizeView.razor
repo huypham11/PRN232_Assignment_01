@@ -1,0 +1,81 @@
+@using WebApp.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+@if (isAuthorized)
+{
+    @ChildContent
+}
+else if (showUnauthorized)
+{
+    <div class="container mt-4">
+        <div class="alert alert-warning">
+            <h4><i class="fas fa-exclamation-triangle"></i> Access Denied</h4>
+            <p>You don't have permission to access this resource.</p>
+            @if (!AuthService.IsAuthenticated)
+            {
+                <p>Please <a href="/login">sign in</a> to continue.</p>
+            }
+            else
+            {
+                <p>Contact your administrator if you believe this is an error.</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string RequiredPermission { get; set; } = string.Empty;
+    [Parameter] public bool RedirectToLogin { get; set; } = true;
+    [Parameter] public bool ShowUnauthorized { get; set; } = true;
+
+    private bool isAuthorized = false;
+    private bool showUnauthorized = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthService.InitializeAsync();
+        CheckAuthorization();
+    }
+
+    protected override void OnParametersSet()
+    {
+        CheckAuthorization();
+    }
+
+    private void CheckAuthorization()
+    {
+        if (!AuthService.IsAuthenticated)
+        {
+            if (RedirectToLogin)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+            else
+            {
+                showUnauthorized = ShowUnauthorized;
+                return;
+            }
+        }
+
+        isAuthorized = RequiredPermission.ToLower() switch
+        {
+            "categories" => AuthService.CanAccessCategories(),
+            "tags" => AuthService.CanAccessTags(),
+            "newsarticles" => AuthService.CanAccessNewsArticles(),
+            "allaccounts" => AuthService.CanAccessAllSystemAccounts(),
+            "ownaccount" => AuthService.CanAccessOwnAccount(),
+            "admin" => AuthService.IsAdmin,
+            "staff" => AuthService.IsStaff,
+            "lecturer" => AuthService.IsLecturer,
+            _ => true // Default allow if no specific permission
+        };
+
+        if (!isAuthorized)
+        {
+            showUnauthorized = ShowUnauthorized;
+        }
+    }
+}

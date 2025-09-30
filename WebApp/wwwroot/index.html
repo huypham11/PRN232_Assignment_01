@@ -30,20 +30,42 @@
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
+    <script>
         window.bootstrapInterop = {
-            showModal: (id) => {
-                var modalEl = document.querySelector(id);
-                var modal = new bootstrap.Modal(modalEl);
-                modal.show();
-            },
-            hideModal: (id) => {
-                var modalEl = document.querySelector(id);
-                var modal = bootstrap.Modal.getInstance(modalEl);
-                if (modal) {
-                    modal.hide();
+            showModal: (selector) => {
+                const modalElement = document.querySelector(selector);
+                if (modalElement) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
                 }
+            },
+            hideModal: (selector) => {
+                const modalElement = document.querySelector(selector);
+                if (modalElement) {
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                    }
+                }
+            },
+            initializeDropdowns: () => {
+                // Initialize all dropdowns
+                const dropdownElementList = [].slice.call(document.querySelectorAll('[data-bs-toggle="dropdown"]'));
+                const dropdownList = dropdownElementList.map(function (dropdownToggleEl) {
+                    return new bootstrap.Dropdown(dropdownToggleEl);
+                });
             }
+        };
+        
+        // Initialize dropdowns when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            window.bootstrapInterop.initializeDropdowns();
+        });
+        
+        // Re-initialize dropdowns after Blazor updates
+        window.blazorCulture = {
+            get: () => window.localStorage['BlazorCulture'],
+            set: (value) => window.localStorage['BlazorCulture'] = value
         };
     </script>
 

@@ -17,6 +17,7 @@ namespace WebApp
             builder.Services.AddScoped<TagService>();
             builder.Services.AddScoped<SystemAccountService>();
             builder.Services.AddScoped<NewsArticleService>();
+            builder.Services.AddScoped<AuthService>();
 
             builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7242/") });
             //builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });

@@ -1,51 +1,63 @@
 @page "/systemaccount_manage"
 @using BusinessObjects
 @using WebApp.Services
+@using WebApp.Components
 @inject SystemAccountService SystemAccountService
+@inject AuthService AuthService
 @inject IJSRuntime JSRuntime
 
-<h3>System Account Management</h3>
+<AuthorizeView RequiredPermission="ownaccount">
+    <h3>@GetPageTitle()</h3>
 
-@if (!string.IsNullOrEmpty(message))
-{
-    <div class="alert alert-info">@message</div>
-}
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-info">@message</div>
+    }
 
-@if (systemAccounts == null)
-{
-    <p><em>Loading...</em></p>
-}
-else
-{
-    <button class="btn btn-success mb-2" @onclick="ShowAddModal">Add New Account</button>
+    @if (systemAccounts == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        @if (AuthService.IsAdmin)
+        {
+            <button class="btn btn-success mb-2" @onclick="ShowAddModal">Add New Account</button>
+        }
 
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var account in systemAccounts)
-            {
+        <table class="table table-bordered">
+            <thead>
                 <tr>
-                    <td>@account.AccountId</td>
-                    <td>@account.AccountName</td>
-                    <td>@account.AccountEmail</td>
-                    <td>@GetRoleName(account.AccountRole)</td>
-                    <td>
-                        <button class="btn btn-primary me-1" @onclick="() => ShowEditModal(account)">Edit</button>
-                        <button class="btn btn-danger" @onclick="() => DeleteSystemAccount(account.AccountId)">Delete</button>
-                    </td>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Actions</th>
                 </tr>
-            }
-        </tbody>
-    </table>
-}
+            </thead>
+            <tbody>
+                @foreach (var account in GetVisibleAccounts())
+                {
+                    <tr>
+                        <td>@account.AccountId</td>
+                        <td>@account.AccountName</td>
+                        <td>@account.AccountEmail</td>
+                        <td>@GetRoleName(account.AccountRole)</td>
+                        <td>
+                            @if (CanEditAccount(account.AccountId))
+                            {
+                                <button class="btn btn-primary me-1" @onclick="() => ShowEditModal(account)">Edit</button>
+                            }
+                            @if (AuthService.IsAdmin)
+                            {
+                                <button class="btn btn-danger" @onclick="() => DeleteSystemAccount(account.AccountId)">Delete</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
 
 <!-- Bootstrap Modal -->
 <div class="modal fade" id="systemAccountModal" tabindex="-1" aria-labelledby="systemAccountModalLabel" aria-hidden="true">
@@ -70,12 +82,19 @@ else
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Role</label>
-                    <select class="form-select" @bind="currentAccount.AccountRole">
-                        <option value="">Select Role</option>
-                        <option value="1">Administrator</option>
-                        <option value="2">Staff</option>
-                        <option value="3">Lecturer</option>
-                    </select>
+                    @if (AuthService.IsAdmin)
+                    {
+                        <select class="form-select" @bind="currentAccount.AccountRole">
+                            <option value="">Select Role</option>
+                            <option value="1">Staff</option>
+                            <option value="2">Lecturer</option>
+                        </select>
+                    }
+                    else
+                    {
+                        <input class="form-control" value="@GetRoleName(currentAccount.AccountRole)" readonly />
+                        <small class="form-text text-muted">You cannot change your own role.</small>
+                    }
                 </div>
             </div>
             <div class="modal-footer">
@@ -87,8 +106,8 @@ else
 </div>
 
 @code {
-    private string message;
-    private List<SystemAccount> systemAccounts;
+    private string? message;
+    private List<SystemAccount>? systemAccounts;
     private SystemAccount currentAccount = new();
     private string modalTitle = "Add Account";
     private bool isEdit = false;
@@ -103,13 +122,51 @@ else
         systemAccounts = await SystemAccountService.GetSystemAccountsAsync();
     }
 
+    private IEnumerable<SystemAccount> GetVisibleAccounts()
+    {
+        if (systemAccounts == null) return new List<SystemAccount>();
+        
+        if (AuthService.IsAdmin)
+        {
+            return systemAccounts; // Admin can see all accounts
+        }
+        else if (AuthService.IsStaff)
+        {
+            // Staff can only see their own account
+            return systemAccounts.Where(a => a.AccountId == AuthService.CurrentUser?.AccountId);
+        }
+        
+        return new List<SystemAccount>();
+    }
+
+    private string GetPageTitle()
+    {
+        if (AuthService.IsAdmin)
+            return "System Account Management";
+        else
+            return "My Account Settings";
+    }
+
+    private bool CanEditAccount(short accountId)
+    {
+        // Admin can edit any account
+        if (AuthService.IsAdmin)
+            return true;
+            
+        // Staff can only edit their own account
+        if (AuthService.IsStaff)
+            return accountId == AuthService.CurrentUser?.AccountId;
+            
+        return false;
+    }
+
     private string GetRoleName(int? role)
     {
         return role switch
         {
-            1 => "Administrator",
-            2 => "Staff",
-            3 => "Lecturer",
+            1 => "Staff",
+            2 => "Lecturer",
+            0 => "Admin",
             _ => "Unknown"
         };
     }
@@ -121,10 +178,10 @@ else
             var success = await SystemAccountService.DeleteSystemAccountAsync(id);
             if (success)
             {
-                var item = systemAccounts.FirstOrDefault(a => a.AccountId == id);
+                var item = systemAccounts?.FirstOrDefault(a => a.AccountId == id);
                 if (item != null)
                 {
-                    systemAccounts.Remove(item);
+                    systemAccounts?.Remove(item);
                     message = $"Account {id} deleted successfully.";
                 }
             }
@@ -150,6 +207,14 @@ else
 
     private void ShowEditModal(SystemAccount account)
     {
+        // Additional check: Staff can only edit their own account
+        if (AuthService.IsStaff && account.AccountId != AuthService.CurrentUser?.AccountId)
+        {
+            message = "You can only edit your own account.";
+            StateHasChanged();
+            return;
+        }
+
         currentAccount = new SystemAccount
             {
                 AccountId = account.AccountId,
@@ -158,7 +223,7 @@ else
                 AccountRole = account.AccountRole,
                 AccountPassword = account.AccountPassword
             };
-        modalTitle = "Edit Account";
+        modalTitle = AuthService.IsAdmin ? "Edit Account" : "Edit My Account";
         isEdit = true;
         ShowModal();
     }
@@ -167,21 +232,53 @@ else
     {
         try
         {
+            // Additional validation for staff users
+            if (AuthService.IsStaff && isEdit)
+            {
+                // Staff can only edit their own account
+                if (currentAccount.AccountId != AuthService.CurrentUser?.AccountId)
+                {
+                    message = "You can only edit your own account.";
+                    HideModal();
+                    StateHasChanged();
+                    return;
+                }
+                
+                // Staff cannot change their role
+                var originalAccount = systemAccounts?.FirstOrDefault(a => a.AccountId == currentAccount.AccountId);
+                if (originalAccount != null)
+                {
+                    currentAccount.AccountRole = originalAccount.AccountRole;
+                }
+            }
+
             if (isEdit)
             {
                 await SystemAccountService.UpdateSystemAccountAsync(currentAccount.AccountId, currentAccount);
-                var item = systemAccounts.FirstOrDefault(a => a.AccountId == currentAccount.AccountId);
+                var item = systemAccounts?.FirstOrDefault(a => a.AccountId == currentAccount.AccountId);
                 if (item != null)
                 {
                     item.AccountName = currentAccount.AccountName;
                     item.AccountEmail = currentAccount.AccountEmail;
-                    item.AccountRole = currentAccount.AccountRole;
+                    if (AuthService.IsAdmin) // Only admin can change roles
+                    {
+                        item.AccountRole = currentAccount.AccountRole;
+                    }
                     item.AccountPassword = currentAccount.AccountPassword;
                 }
                 message = $"Account {currentAccount.AccountId} updated successfully.";
             }
             else
             {
+                // Only admin can create new accounts
+                if (!AuthService.IsAdmin)
+                {
+                    message = "You don't have permission to create new accounts.";
+                    HideModal();
+                    StateHasChanged();
+                    return;
+                }
+                
                 await SystemAccountService.CreateSystemAccountAsync(currentAccount);
                 await LoadSystemAccounts(); // reload để có ID tự tăng
                 message = "New account added successfully.";
@@ -206,3 +303,4 @@ else
         await JSRuntime.InvokeVoidAsync("bootstrapInterop.hideModal", "#systemAccountModal");
     }
 }
+</AuthorizeView>

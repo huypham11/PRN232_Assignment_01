@@ -1,4 +1,9 @@
-﻿<div class="navbar navbar-expand-lg navbar-dark bg-dark">
+﻿@using WebApp.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="navbar navbar-expand-lg navbar-dark bg-dark">
 	<div class="container-fluid">
 		<a class="navbar-brand" href="">WebApp</a>
         
@@ -10,33 +15,118 @@
 
 		<!-- Menu -->
 		<div class="collapse navbar-collapse" id="navMenu">
-			<ul class="navbar-nav me-auto mb-2 mb-lg-0">
-				<li class="nav-item px-2 py-0">
-					<NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-						Home
-					</NavLink>
-				</li>
-				<li class="nav-item px-2 py-0">
-					<NavLink class="nav-link" href="category_manage">
-						Category Management
-					</NavLink>
-				</li>
-				<li class="nav-item px-2 py-0">
-					<NavLink class="nav-link" href="tag_manage">
-						Tag Management
-					</NavLink>
-				</li>
-				<li class="nav-item px-2 py-0">
-					<NavLink class="nav-link" href="systemaccount_manage">
-						Account Management
-					</NavLink>
-				</li>
-				<li class="nav-item px-2 py-0">
-					<NavLink class="nav-link" href="newsarticle_manage">
-						News Article Management
-					</NavLink>
-				</li>
-			</ul>
+			@if (AuthService.IsAuthenticated)
+			{
+				<ul class="navbar-nav me-auto mb-2 mb-lg-0">
+					<li class="nav-item px-2 py-0">
+						<NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+							Home
+						</NavLink>
+					</li>
+					@if (AuthService.CanAccessCategories())
+					{
+						<li class="nav-item px-2 py-0">
+							<NavLink class="nav-link" href="category_manage">
+								Category Management
+							</NavLink>
+						</li>
+					}
+					@if (AuthService.CanAccessTags())
+					{
+						<li class="nav-item px-2 py-0">
+							<NavLink class="nav-link" href="tag_manage">
+								Tag Management
+							</NavLink>
+						</li>
+					}
+					@if (AuthService.CanAccessAllSystemAccounts())
+					{
+						<li class="nav-item px-2 py-0">
+							<NavLink class="nav-link" href="systemaccount_manage">
+								Account Management
+							</NavLink>
+						</li>
+					}
+					else if (AuthService.CanAccessOwnAccount() && AuthService.IsStaff)
+					{
+						<li class="nav-item px-2 py-0">
+							<NavLink class="nav-link" href="systemaccount_manage">
+								My Account
+							</NavLink>
+						</li>
+					}
+					@if (AuthService.CanAccessNewsArticles())
+					{
+						<li class="nav-item px-2 py-0">
+							<NavLink class="nav-link" href="newsarticle_manage">
+								News Article Management
+							</NavLink>
+						</li>
+					}
+				</ul>
+				<ul class="navbar-nav">
+					<!-- User dropdown with logout -->
+					<li class="nav-item dropdown">
+						<a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" 
+						   data-bs-toggle="dropdown" aria-expanded="false">
+							👤 @AuthService.CurrentUser?.AccountName
+						</a>
+						<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+							<li><span class="dropdown-item-text"><small><strong>@GetRoleText()</strong></small></span></li>
+							<li><hr class="dropdown-divider"></li>
+							<li><a class="dropdown-item" href="#" @onclick="Logout" @onclick:preventDefault="true">
+								🚪 Logout
+							</a></li>
+						</ul>
+					</li>
+					
+					<!-- Simple logout button for mobile/fallback -->
+					<li class="nav-item d-lg-none">
+						<button class="btn btn-outline-light btn-sm ms-2 mt-1" @onclick="Logout">
+							Logout
+						</button>
+					</li>
+				</ul>
+			}
+			 else
+			{
+				<ul class="navbar-nav ms-auto">
+					<li class="nav-item">
+						<NavLink class="nav-link" href="login">
+							Login
+						</NavLink>
+					</li>
+				</ul>
+			}
 		</div>
 	</div>
 </div>
+
+@code {
+	protected override async Task OnInitializedAsync()
+	{
+		await AuthService.InitializeAsync();
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			await JSRuntime.InvokeVoidAsync("bootstrapInterop.initializeDropdowns");
+		}
+	}
+
+	private string GetRoleText()
+	{
+		if (AuthService.IsAdmin) return "Administrator";
+		if (AuthService.IsStaff) return "Staff";
+		if (AuthService.IsLecturer) return "Lecturer";
+		return "User";
+	}
+
+	private async Task Logout()
+	{
+		await AuthService.LogoutAsync();
+		Navigation.NavigateTo("/login");
+	}
+}
