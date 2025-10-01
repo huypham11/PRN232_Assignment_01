@@ -9,16 +9,14 @@ namespace WebApp.Services
     {
         private readonly HttpClient _httpClient;
         private readonly IJSRuntime _jsRuntime;
-        private readonly SystemAccountService _systemAccountService;
         private SystemAccount? _currentUser;
         private string? _adminEmail;
         private string? _adminPassword;
 
-        public AuthService(HttpClient httpClient, IJSRuntime jsRuntime, SystemAccountService systemAccountService)
+        public AuthService(HttpClient httpClient, IJSRuntime jsRuntime)
         {
             _httpClient = httpClient;
             _jsRuntime = jsRuntime;
-            _systemAccountService = systemAccountService;
         }
 
         public SystemAccount? CurrentUser => _currentUser;
@@ -112,7 +110,7 @@ namespace WebApp.Services
             // Check staff/lecturer login
             try
             {
-                var accounts = await _systemAccountService.GetSystemAccountsAsync();
+                var accounts = await _httpClient.GetFromJsonAsync<List<SystemAccount>>("api/systemaccounts");
                 var user = accounts?.FirstOrDefault(a => a.AccountEmail == email && a.AccountPassword == password);
                 
                 if (user != null)

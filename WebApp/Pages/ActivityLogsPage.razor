@@ -1,0 +1,487 @@
+@page "/activity-logs"
+@using WebApp.Services
+@using BusinessObjects
+@inject ActivityLogService ActivityLogService
+@inject SystemAccountService SystemAccountService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Activity Logs</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">User Activity Logs</h3>
+                    <div class="card-tools">
+                        <button class="btn btn-primary btn-sm me-2" @onclick="RefreshLogs">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button class="btn @(hideViewActions ? "btn-success" : "btn-outline-secondary") btn-sm" @onclick="ToggleViewActions">
+                            <i class="fas @(hideViewActions ? "fa-eye" : "fa-eye-slash")"></i> 
+                            @(hideViewActions ? "Show" : "Hide") View Actions
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filter Section -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label for="userFilter" class="form-label">Filter by User:</label>
+                            <select class="form-select" id="userFilter" @onchange="OnUserFilterChanged" disabled="@(isLoadingUsers)">
+                                <option value="">@(isLoadingUsers ? "Loading users..." : "All Users")</option>
+                                @if (users != null && users.Any())
+                                {
+                                    @foreach (var user in users)
+                                    {
+                                        <option value="@user.AccountId">@user.AccountName (@GetUserRole(user))</option>
+                                    }
+                                }
+                                else if (!isLoadingUsers && (users == null || !users.Any()))
+                                {
+                                    <option value="" disabled>No users found</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="entityFilter" class="form-label">Filter by Entity:</label>
+                            <select class="form-select" id="entityFilter" @onchange="OnEntityFilterChanged">
+                                <option value="">All Entities</option>
+                                <option value="NewsArticle">News Articles</option>
+                                <option value="Category">Categories</option>
+                                <option value="Tag">Tags</option>
+                                <option value="SystemAccount">System Accounts</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="actionFilter" class="form-label">Filter by Action:</label>
+                            <select class="form-select" id="actionFilter" @onchange="OnActionFilterChanged">
+                                <option value="">All Actions</option>
+                                <option value="CREATE">Create</option>
+                                <option value="UPDATE">Update</option>
+                                <option value="DELETE">Delete</option>
+                                <option value="VIEW">View</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="dateFilter" class="form-label">Filter by Date:</label>
+                            <input type="date" class="form-control" id="dateFilter" @onchange="OnDateFilterChanged" />
+                        </div>
+                    </div>
+
+                    @if (hideViewActions)
+                    {
+                        <div class="alert alert-info" role="alert">
+                            <i class="fas fa-info-circle"></i> View actions are currently hidden by default. Click "Show View Actions" to display them.
+                        </div>
+                    }
+
+                    @if (isLoading)
+                    {
+                        <div class="text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>Loading activity logs...</p>
+                        </div>
+                    }
+                    else if (errorMessage != null)
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i> @errorMessage
+                        </div>
+                    }
+                    else if (filteredActivities == null || !filteredActivities.Any())
+                    {
+                        <div class="alert alert-info" role="alert">
+                            <i class="fas fa-info-circle"></i> No activity logs found.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Action</th>
+                                        <th>Entity Type</th>
+                                        <th>Entity ID</th>
+                                        <th>Description</th>
+                                        <th>Timestamp</th>
+                                        <th>IP Address</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var activity in paginatedActivities)
+                                    {
+                                        <tr>
+                                            <td>@activity.ActivityId</td>
+                                            <td>
+                                                @if (activity.User != null)
+                                                {
+                                                    <span class="badge bg-@GetUserBadgeColor(activity.User)">@activity.User.AccountName</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Unknown</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-@GetActionColor(activity.Action)">
+                                                    @activity.Action
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">@activity.EntityType</span>
+                                            </td>
+                                            <td>@activity.EntityId</td>
+                                            <td title="@activity.Description">
+                                                @if (activity.Description.Length > 50)
+                                                {
+                                                    @(activity.Description.Substring(0, 47) + "...")
+                                                }
+                                                else
+                                                {
+                                                    @activity.Description
+                                                }
+                                            </td>
+                                            <td>@activity.Timestamp.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                            <td>@(activity.IpAddress ?? "N/A")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => ViewDetails(activity)">
+                                                    <i class="fas fa-eye"></i> Details
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <nav aria-label="Activity logs pagination">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Previous</button>
+                                </li>
+                                @for (int i = 1; i <= totalPages; i++)
+                                {
+                                    <li class="page-item @(i == currentPage ? "active" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Next</button>
+                                </li>
+                            </ul>
+                        </nav>
+
+                        <div class="text-center text-muted">
+                            Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredActivities.Count) 
+                            of @filteredActivities.Count activities
+                            @if (hideViewActions)
+                            {
+                                <span class="text-warning">(VIEW actions hidden by default)</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activity Details Modal -->
+@if (selectedActivity != null)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Activity Details</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Activity ID:</strong> @selectedActivity.ActivityId<br/>
+                            <strong>User:</strong> @(selectedActivity.User?.AccountName ?? "Unknown")<br/>
+                            <strong>Action:</strong> <span class="badge bg-@GetActionColor(selectedActivity.Action)">@selectedActivity.Action</span><br/>
+                            <strong>Entity Type:</strong> @selectedActivity.EntityType<br/>
+                            <strong>Entity ID:</strong> @selectedActivity.EntityId<br/>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Timestamp:</strong> @selectedActivity.Timestamp.ToString("dd/MM/yyyy HH:mm:ss")<br/>
+                            <strong>IP Address:</strong> @(selectedActivity.IpAddress ?? "N/A")<br/>
+                            <strong>User Agent:</strong> @(selectedActivity.UserAgent ?? "N/A")<br/>
+                        </div>
+                    </div>
+                    <hr/>
+                    <div class="row">
+                        <div class="col-12">
+                            <strong>Description:</strong><br/>
+                            <p class="mt-2">@selectedActivity.Description</p>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(selectedActivity.OldValues) || !string.IsNullOrEmpty(selectedActivity.NewValues))
+                    {
+                        <hr/>
+                        <div class="row">
+                            @if (!string.IsNullOrEmpty(selectedActivity.OldValues))
+                            {
+                                <div class="col-md-6">
+                                    <strong>Old Values:</strong>
+                                    <pre class="bg-light p-2 mt-2">@selectedActivity.OldValues</pre>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(selectedActivity.NewValues))
+                            {
+                                <div class="col-md-6">
+                                    <strong>New Values:</strong>
+                                    <pre class="bg-light p-2 mt-2">@selectedActivity.NewValues</pre>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<ActivityLog>? activities;
+    private List<ActivityLog>? filteredActivities;
+    private List<ActivityLog> paginatedActivities = new();
+    private List<SystemAccount>? users;
+    private bool isLoading = true;
+    private bool isLoadingUsers = true;
+    private string? errorMessage;
+    private ActivityLog? selectedActivity;
+
+    // Filter properties
+    private string selectedUserId = "";
+    private string selectedEntityType = "";
+    private string selectedAction = "";
+    private DateTime? selectedDate;
+    private bool hideViewActions = true; // Default to true to hide VIEW actions by default
+
+    // Pagination properties
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            isLoading = true;
+            
+            // Load both activity logs and users in parallel
+            var activitiesTask = ActivityLogService.GetAllAsync();
+            var usersTask = LoadUsers();
+            
+            await Task.WhenAll(activitiesTask, usersTask);
+            
+            activities = await activitiesTask;
+            filteredActivities = activities;
+            ApplyFilters();
+            UpdatePagination();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading activity logs: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            isLoadingUsers = true;
+            users = await SystemAccountService.GetSystemAccountsAsync();
+            
+            // Add Admin user manually since it might not be in the database
+            if (users != null)
+            {
+                var adminUser = new SystemAccount
+                {
+                    AccountId = 0,
+                    AccountName = "Administrator",
+                    AccountEmail = "admin@funews.com",
+                    AccountRole = null
+                };
+                
+                users = new List<SystemAccount> { adminUser }.Concat(users).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}");
+            users = new List<SystemAccount>();
+        }
+        finally
+        {
+            isLoadingUsers = false;
+        }
+    }
+
+    private async Task RefreshLogs()
+    {
+        await LoadData();
+    }
+
+    private void ToggleViewActions()
+    {
+        hideViewActions = !hideViewActions;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        if (activities == null) return;
+
+        var query = activities.AsQueryable();
+
+        // Hide VIEW actions if toggle is enabled (default is true)
+        if (hideViewActions)
+        {
+            query = query.Where(a => a.Action != "VIEW");
+        }
+
+        if (!string.IsNullOrEmpty(selectedUserId) && short.TryParse(selectedUserId, out var userId))
+        {
+            query = query.Where(a => a.UserId == userId);
+        }
+
+        if (!string.IsNullOrEmpty(selectedEntityType))
+        {
+            query = query.Where(a => a.EntityType == selectedEntityType);
+        }
+
+        if (!string.IsNullOrEmpty(selectedAction))
+        {
+            query = query.Where(a => a.Action == selectedAction);
+        }
+
+        if (selectedDate.HasValue)
+        {
+            query = query.Where(a => a.Timestamp.Date == selectedDate.Value.Date);
+        }
+
+        filteredActivities = query.ToList();
+
+        currentPage = 1; // Reset to first page when filters change
+        UpdatePagination();
+    }
+
+    private void UpdatePagination()
+    {
+        if (filteredActivities == null) return;
+
+        totalPages = (int)Math.Ceiling((double)filteredActivities.Count / pageSize);
+        
+        var skip = (currentPage - 1) * pageSize;
+        paginatedActivities = filteredActivities.Skip(skip).Take(pageSize).ToList();
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagination();
+        }
+    }
+
+    private void OnUserFilterChanged(ChangeEventArgs e)
+    {
+        selectedUserId = e.Value?.ToString() ?? "";
+        ApplyFilters();
+    }
+
+    private void OnEntityFilterChanged(ChangeEventArgs e)
+    {
+        selectedEntityType = e.Value?.ToString() ?? "";
+        ApplyFilters();
+    }
+
+    private void OnActionFilterChanged(ChangeEventArgs e)
+    {
+        selectedAction = e.Value?.ToString() ?? "";
+        ApplyFilters();
+    }
+
+    private void OnDateFilterChanged(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var date))
+        {
+            selectedDate = date;
+        }
+        else
+        {
+            selectedDate = null;
+        }
+        ApplyFilters();
+    }
+
+    private void ViewDetails(ActivityLog activity)
+    {
+        selectedActivity = activity;
+    }
+
+    private void CloseModal()
+    {
+        selectedActivity = null;
+    }
+
+    private string GetActionColor(string action)
+    {
+        return action switch
+        {
+            "CREATE" => "success",
+            "UPDATE" => "warning",
+            "DELETE" => "danger",
+            "VIEW" => "info",
+            _ => "secondary"
+        };
+    }
+
+    private string GetUserRole(SystemAccount user)
+    {
+        return user.AccountRole switch
+        {
+            null => "Admin",
+            1 => "Staff",
+            2 => "Lecturer",
+            _ => "Unknown"
+        };
+    }
+
+    private string GetUserBadgeColor(SystemAccount user)
+    {
+        return user.AccountRole switch
+        {
+            null => "danger",    // Admin - red
+            1 => "primary",      // Staff - blue
+            2 => "success",      // Lecturer - green
+            _ => "secondary"     // Unknown - gray
+        };
+    }
+}

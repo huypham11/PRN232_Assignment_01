@@ -63,6 +63,14 @@
 							</NavLink>
 						</li>
 					}
+					@if (AuthService.IsStaff || AuthService.IsAdmin)
+					{
+						<li class="nav-item px-2 py-0">
+							<NavLink class="nav-link" href="activity-logs">
+								Activity Logs
+							</NavLink>
+						</li>
+					}
 				</ul>
 				<ul class="navbar-nav">
 					<!-- User dropdown with logout -->

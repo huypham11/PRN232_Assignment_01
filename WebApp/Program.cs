@@ -12,15 +12,21 @@ namespace WebApp
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
             
-            //add services to the container
+            // Configure HttpClient
+            var apiBaseUrl = builder.HostEnvironment.IsDevelopment() 
+                ? "https://localhost:7242/" 
+                : "https://localhost:7242/";
+                
+            builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
+            
+            // Add services to the container
+            builder.Services.AddScoped<AuthService>();
+            builder.Services.AddScoped<AuthenticatedHttpClient>();
             builder.Services.AddScoped<CategoryService>();
             builder.Services.AddScoped<TagService>();
             builder.Services.AddScoped<SystemAccountService>();
             builder.Services.AddScoped<NewsArticleService>();
-            builder.Services.AddScoped<AuthService>();
-
-            builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7242/") });
-            //builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+            builder.Services.AddScoped<ActivityLogService>();
             
             await builder.Build().RunAsync();
         }

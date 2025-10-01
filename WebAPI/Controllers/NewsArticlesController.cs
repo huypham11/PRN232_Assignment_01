@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using BusinessObjects;
 using Services;
+using WebAPI.Helpers;
 
 namespace WebAPI.Controllers
 {
@@ -12,10 +13,12 @@ namespace WebAPI.Controllers
     public class NewsArticlesController : ControllerBase
     {
         private readonly INewsArticleService _context;
+        private readonly IActivityLogService _activityLogService;
 
-        public NewsArticlesController(INewsArticleService context)
+        public NewsArticlesController(INewsArticleService context, IActivityLogService activityLogService)
         {
             _context = context;
+            _activityLogService = activityLogService;
         }
 
         // GET: api/NewsArticles
@@ -25,6 +28,19 @@ namespace WebAPI.Controllers
             try
             {
                 var articles = await Task.FromResult(_context.GetNewsArticles());
+
+                // Log activity
+                var currentUserId = ActivityLogHelper.GetCurrentUserId(HttpContext);
+                await ActivityLogHelper.LogActivityAsync(
+                    _activityLogService,
+                    HttpContext,
+                    currentUserId,
+                    "VIEW",
+                    "NewsArticle",
+                    "ALL",
+                    $"Viewed all news articles (Count: {articles.Count})"
+                );
+
                 return Ok(articles);
             }
             catch (System.Exception ex)
@@ -44,6 +60,19 @@ namespace WebAPI.Controllers
                 {
                     return NotFound();
                 }
+
+                // Log activity
+                var currentUserId = ActivityLogHelper.GetCurrentUserId(HttpContext);
+                await ActivityLogHelper.LogActivityAsync(
+                    _activityLogService,
+                    HttpContext,
+                    currentUserId,
+                    "VIEW",
+                    "NewsArticle",
+                    id,
+                    $"Viewed news article: {newsArticle.NewsTitle}"
+                );
+
                 return Ok(newsArticle);
             }
             catch (System.Exception ex)
@@ -70,7 +99,21 @@ namespace WebAPI.Controllers
             try
             {
                 _context.UpdateNewsArticle(id, newsArticle);
-                // If your service is async, await it here
+
+                // Log activity
+                var currentUserId = ActivityLogHelper.GetCurrentUserId(HttpContext);
+                await ActivityLogHelper.LogActivityAsync(
+                    _activityLogService,
+                    HttpContext,
+                    currentUserId,
+                    "UPDATE",
+                    "NewsArticle",
+                    id,
+                    $"Updated news article: {newsArticle.NewsTitle}",
+                    existingArticle,
+                    newsArticle
+                );
+
                 return Ok(new { message = "update successful" });
             }
             catch (System.Exception ex)
@@ -92,7 +135,19 @@ namespace WebAPI.Controllers
                 }
 
                 _context.AddNewsArticle(newsArticle);
-                // If your service is async, await it here
+
+                // Log activity
+                var currentUserId = ActivityLogHelper.GetCurrentUserId(HttpContext);
+                await ActivityLogHelper.LogActivityAsync(
+                    _activityLogService,
+                    HttpContext,
+                    currentUserId,
+                    "CREATE",
+                    "NewsArticle",
+                    newsArticle.NewsArticleId,
+                    $"Created news article: {newsArticle.NewsTitle}",
+                    newValues: newsArticle
+                );
 
                 return CreatedAtAction(nameof(GetNewsArticle), new { id = newsArticle.NewsArticleId }, newsArticle);
             }
@@ -115,7 +170,19 @@ namespace WebAPI.Controllers
             try
             {
                 _context.DeleteNewsArticle(id);
-                // If your service is async, await it here
+
+                // Log activity
+                var currentUserId = ActivityLogHelper.GetCurrentUserId(HttpContext);
+                await ActivityLogHelper.LogActivityAsync(
+                    _activityLogService,
+                    HttpContext,
+                    currentUserId,
+                    "DELETE",
+                    "NewsArticle",
+                    id,
+                    $"Deleted news article: {newsArticle.NewsTitle}",
+                    oldValues: newsArticle
+                );
 
                 return Ok(new { message = "delete successful" });
             }

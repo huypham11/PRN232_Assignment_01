@@ -24,6 +24,8 @@ public partial class FunewsManagementContext : DbContext
 
     public virtual DbSet<Tag> Tags { get; set; }
 
+    public virtual DbSet<ActivityLog> ActivityLogs { get; set; }
+
     private string GetConnectionString()
     {
         IConfiguration config = new ConfigurationBuilder()
@@ -126,6 +128,26 @@ public partial class FunewsManagementContext : DbContext
                 .HasColumnName("TagID");
             entity.Property(e => e.Note).HasMaxLength(400);
             entity.Property(e => e.TagName).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<ActivityLog>(entity =>
+        {
+            entity.ToTable("ActivityLog");
+
+            entity.Property(e => e.ActivityId).HasColumnName("ActivityID");
+            entity.Property(e => e.UserId).HasColumnName("UserID");
+            entity.Property(e => e.Action).HasMaxLength(50);
+            entity.Property(e => e.EntityType).HasMaxLength(100);
+            entity.Property(e => e.EntityId).HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.Timestamp).HasColumnType("datetime");
+            entity.Property(e => e.IpAddress).HasMaxLength(100);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+
+            entity.HasOne(d => d.User).WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_ActivityLog_SystemAccount");
         });
 
         OnModelCreatingPartial(modelBuilder);
